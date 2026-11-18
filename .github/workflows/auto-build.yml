@@ -1,0 +1,86 @@
+name: Auto Build Server (no-key)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - ".github/**"
+
+permissions:
+  contents: read
+
+jobs:
+  build-linux:
+    name: Build - ${{ matrix.job.name }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        job:
+          - { name: "amd64",   target: "x86_64-unknown-linux-musl" }
+          - { name: "arm64v8", target: "aarch64-unknown-linux-musl" }
+          - { name: "armv7",   target: "armv7-unknown-linux-musleabihf" }
+          - { name: "i386",    target: "i686-unknown-linux-musl" }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.job.target }}
+
+      - name: Install cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build
+        run: cross build --release --all-features --target ${{ matrix.job.target }}
+
+      - name: Prepare artifacts
+        run: |
+          mkdir -p out
+          cp target/${{ matrix.job.target }}/release/hbbs out/
+          cp target/${{ matrix.job.target }}/release/hbbr out/
+          cp target/${{ matrix.job.target }}/release/rustdesk-utils out/ 2>/dev/null || true
+          chmod -v a+x out/*
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdesk-server-linux-${{ matrix.job.name }}
+          path: out/*
+
+  build-windows:
+    name: Build - windows-x64
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Build
+        run: cargo build --release --all-features --target x86_64-pc-windows-msvc
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdesk-server-windows-x64
+          path: |
+            target/x86_64-pc-windows-msvc/release/hbbs.exe
+            target/x86_64-pc-windows-msvc/release/hbbr.exe
+            target/x86_64-pc-windows-msvc/release/rustdesk-utils.exe
+          if-no-files-found: error

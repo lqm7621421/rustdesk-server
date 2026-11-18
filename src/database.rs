@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use hbb_common::{log, ResultType};
 use sqlx::{
-    sqlite::SqliteConnectOptions, ConnectOptions, Connection, Error as SqlxError, SqliteConnection,
+    sqlite::SqliteConnectOptions, ConnectOptions, Connection, Error as SqlxError, Row,
+    SqliteConnection,
 };
 use std::{ops::DerefMut, str::FromStr};
 //use sqlx::postgres::PgPoolOptions;
@@ -44,6 +45,23 @@ pub struct Peer {
     pub user: Option<Vec<u8>>,
     pub info: String,
     pub status: Option<i64>,
+}
+
+// Manual FromRow impl instead of sqlx::FromRow derive so the sqlx `macros`
+// feature (sqlx-macros.dll, which fails to load on Windows, os error 1114)
+// stays disabled.
+impl<'r> sqlx::FromRow<'r, sqlx::sqlite::SqliteRow> for Peer {
+    fn from_row(row: &'r sqlx::sqlite::SqliteRow) -> Result<Self, SqlxError> {
+        Ok(Self {
+            guid: row.try_get("guid")?,
+            id: row.try_get("id")?,
+            uuid: row.try_get("uuid")?,
+            pk: row.try_get("pk")?,
+            user: row.try_get("user")?,
+            info: row.try_get("info")?,
+            status: row.try_get("status")?,
+        })
+    }
 }
 
 impl Database {

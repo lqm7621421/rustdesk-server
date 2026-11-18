@@ -58,11 +58,13 @@ jobs:
           path: out/*
           if-no-files-found: error
 
-  # Windows x64 build. Uses use-cross (same as official build.yaml) to avoid the
-  # sqlx-macros sqlite DLL load failure seen with plain cargo on windows runners.
+  # Windows x64 build via cross-compilation from Linux. Building on a Windows
+  # host fails because sqlx-macros is a proc-macro DLL whose sqlite/lib sodium
+  # CRT init fails there (os error 1114). Compiling on Linux makes proc-macros
+  # run as .so and avoids that entirely. No --all-features => no native-tls/openssl.
   build-windows-amd64:
     name: Build - windows-amd64
-    runs-on: windows-2022
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout
@@ -77,24 +79,21 @@ jobs:
           override: true
           default: true
           profile: minimal
-          target: x86_64-pc-windows-msvc
+          target: x86_64-pc-windows-gnu
+
+      - name: Install cross
+        run: cargo install cross --locked
 
       - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --all-features --target=x86_64-pc-windows-msvc
-          use-cross: true
+        run: cross build --release --target x86_64-pc-windows-gnu
 
       - name: Prepare artifacts
-        shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path out | Out-Null
-          Copy-Item target\x86_64-pc-windows-msvc\release\hbbs.exe out\
-          Copy-Item target\x86_64-pc-windows-msvc\release\hbbr.exe out\
-          if (Test-Path target\x86_64-pc-windows-msvc\release\rustdesk-utils.exe) {
-            Copy-Item target\x86_64-pc-windows-msvc\release\rustdesk-utils.exe out\
-          }
+          mkdir -p out
+          cp target/x86_64-pc-windows-gnu/release/hbbs.exe out/
+          cp target/x86_64-pc-windows-gnu/release/hbbr.exe out/
+          cp target/x86_64-pc-windows-gnu/release/rustdesk-utils.exe out/ 2>/dev/null || true
+          ls -la out/
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

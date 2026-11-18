@@ -58,13 +58,12 @@ jobs:
           path: out/*
           if-no-files-found: error
 
-  # Windows x64 build via cross-compilation from Linux. Building on a Windows
-  # host fails because sqlx-macros is a proc-macro DLL whose sqlite/lib sodium
-  # CRT init fails there (os error 1114). Compiling on Linux makes proc-macros
-  # run as .so and avoids that entirely. No --all-features => no native-tls/openssl.
+  # Windows x64 native build. sqlx `macros` feature was removed (queries use the
+  # runtime API now), so no sqlx-macros proc-macro DLL -> no os error 1114.
+  # native-tls uses Windows Schannel here, so no OpenSSL is needed.
   build-windows-amd64:
     name: Build - windows-amd64
-    runs-on: ubuntu-22.04
+    runs-on: windows-2022
 
     steps:
       - name: Checkout
@@ -79,24 +78,21 @@ jobs:
           override: true
           default: true
           profile: minimal
-          target: x86_64-pc-windows-gnu
-
-      - name: Install cross
-        run: cargo install cross --locked
-
-      - name: Refresh lockfile for vendored OpenSSL
-        run: rm -f Cargo.lock
+          target: x86_64-pc-windows-msvc
 
       - name: Build
-        run: cross build --release --target x86_64-pc-windows-gnu
+        run: cargo build --release --target x86_64-pc-windows-msvc
 
       - name: Prepare artifacts
+        shell: pwsh
         run: |
-          mkdir -p out
-          cp target/x86_64-pc-windows-gnu/release/hbbs.exe out/
-          cp target/x86_64-pc-windows-gnu/release/hbbr.exe out/
-          cp target/x86_64-pc-windows-gnu/release/rustdesk-utils.exe out/ 2>/dev/null || true
-          ls -la out/
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          Copy-Item target\x86_64-pc-windows-msvc\release\hbbs.exe out\
+          Copy-Item target\x86_64-pc-windows-msvc\release\hbbr.exe out\
+          if (Test-Path target\x86_64-pc-windows-msvc\release\rustdesk-utils.exe) {
+            Copy-Item target\x86_64-pc-windows-msvc\release\rustdesk-utils.exe out\
+          }
+          Get-ChildItem out\
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

@@ -19,7 +19,6 @@ use hbb_common::{
     },
     ResultType,
 };
-use sodiumoxide::crypto::sign;
 use std::{
     collections::{HashMap, HashSet},
     io::prelude::*,
@@ -761,26 +760,9 @@ mod tests {
     }
 }
 
-/// Returns the configured relay key or resolves a signing key to its public value.
-fn get_server_sk(key: &str) -> ResultType<String> {
-    let mut key = key.to_owned();
-    if let Ok(sk) = base64::decode(&key) {
-        if sk.len() == sign::SECRETKEYBYTES {
-            log::info!("The key is a crypto private key");
-            key = base64::encode(&sk[(sign::SECRETKEYBYTES / 2)..]);
-        }
-    }
-
-    if key == "-" || key == "_" {
-        let (pk, _) = crate::common::gen_sk(300)?;
-        key = pk;
-    }
-
-    if !key.is_empty() {
-        log::info!("Key: {}", key);
-    }
-
-    Ok(key)
+/// No-key mode: never require or resolve a relay key, so clients only need the server IP.
+fn get_server_sk(_key: &str) -> ResultType<String> {
+    Ok(String::new())
 }
 
 #[async_trait]

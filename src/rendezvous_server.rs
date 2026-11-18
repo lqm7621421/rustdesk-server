@@ -1339,31 +1339,10 @@ impl RendezvousServer {
     }
 
     #[inline]
-    fn get_server_sk(key: &str) -> ResultType<(String, Option<sign::SecretKey>)> {
-        let mut out_sk = None;
-        let mut key = key.to_owned();
-        if let Ok(sk) = base64::decode(&key) {
-            if sk.len() == sign::SECRETKEYBYTES {
-                log::info!("The key is a crypto private key");
-                key = base64::encode(&sk[(sign::SECRETKEYBYTES / 2)..]);
-                let mut tmp = [0u8; sign::SECRETKEYBYTES];
-                tmp[..].copy_from_slice(&sk);
-                out_sk = Some(sign::SecretKey(tmp));
-            }
-        }
-
-        if key.is_empty() || key == "-" || key == "_" {
-            let (pk, sk) = crate::common::gen_sk(0)?;
-            out_sk = sk;
-            if !key.is_empty() {
-                key = pk;
-            }
-        }
-
-        if !key.is_empty() {
-            log::info!("Key: {}", key);
-        }
-        Ok((key, out_sk))
+    fn get_server_sk(_key: &str) -> ResultType<(String, Option<sign::SecretKey>)> {
+        // No-key mode: do not generate a signing key and do not require a licence key.
+        // Clients only need the server IP to connect (key-less deployment).
+        Ok((String::new(), None))
     }
 
     #[inline]

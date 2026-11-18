@@ -18,6 +18,8 @@ path = "src/utils.rs"
 
 [dependencies]
 hbb_common = { path = "libs/hbb_common" }
+# Force vendored OpenSSL so cross-compiled Windows builds don't need system OpenSSL.
+openssl-sys = { version = "0.9", features = ["vendored"] }
 serde_derive = "1.0"
 serde = "1.0"
 serde_json = "1.0"
